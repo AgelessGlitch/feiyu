@@ -429,6 +429,7 @@ function segmentsOf(event) {
 function toText(event, selfId) {
   const parts = [];
   let mentioned = false;
+  let replyId = '';
   for (const seg of segmentsOf(event)) {
     const type = seg.type;
     const data = seg.data || {};
@@ -439,12 +440,12 @@ function toText(event, selfId) {
     } else if (type === 'image') parts.push('[图片]');
     else if (type === 'face') parts.push('');
     else if (type === 'file') parts.push(`[文件 ${data.name || ''}]`);
-    else if (type === 'reply') parts.push('');
+    else if (type === 'reply') replyId = String(data.id || '');
     else if (type === 'forward') parts.push('[合并转发]');
     else if (type === 'record') parts.push('[语音]');
     else if (type === 'video') parts.push('[视频]');
   }
-  return { text: parts.join('').trim(), mentioned };
+  return { text: parts.join('').trim(), mentioned, replyId };
 }
 
 function senderName(event) {
@@ -577,7 +578,7 @@ async function handleEvent(event, onebot, rt, cfg) {
   if (event.user_id && String(event.user_id) === String(onebot.selfId)) return; // 自己的消息
 
   const selfId = onebot.selfId;
-  const { text, mentioned } = toText(event, selfId);
+  const { text, mentioned, replyId } = toText(event, selfId);
   if (!text) return;
 
   const isGroup = event.message_type === 'group';
@@ -588,7 +589,17 @@ async function handleEvent(event, onebot, rt, cfg) {
   if (isGroup) {
     const g = cfg.group;
     if (g.allowlist.length && !g.allowlist.includes(String(event.group_id))) return;
-    // at：只回 @；prefix：@ 或「肥鱼」开头；name：@ 或话里提到名字；all：每条都回
+    // 有人「回复」她的消息，也算在跟她说话（不用非得 @）
+    let replyToMe = false;
+    if (replyId) {
+      try {
+        const m = await onebot.call('get_msg', { message_id: replyId });
+        replyToMe = String(m?.sender?.user_id || '') === String(selfId);
+      } catch (e) {
+        log('[reply] 查不到被回复的消息：', e.message);
+      }
+    }
+    // at：只回 @；prefix：@ 或「肥鱼」开头；name：@/回复/提到名字；all：每条都回
     let byName = false;
     if (g.mode === 'name') {
       try {
@@ -599,6 +610,7 @@ async function handleEvent(event, onebot, rt, cfg) {
     }
     const should =
       mentioned ||
+      replyToMe ||
       g.mode === 'all' ||
       (g.mode === 'prefix' && text.startsWith(g.prefix)) ||
       byName;
@@ -613,7 +625,7 @@ async function handleEvent(event, onebot, rt, cfg) {
       return;
     }
     const chat = `群 ${event.group_id}`;
-    const line = `【QQ群 ${event.group_name || event.group_id}】${name}(${userId}) 说：${text}`;
+    const line = `【QQ群 ${event.group_name || event.group_id}】${name}(${userId}) 说：${replyToMe ? '（这条是回复你上面那句话的）' : ''}${text}`;
     // 先按「之前的记录」拼好提示，再把这条记进去，免得同一条消息出现两次
     const prompt = buildPrompt({ chat, scope: 'chat', line, text });
     mem?.record({ chat, speaker: name, text });

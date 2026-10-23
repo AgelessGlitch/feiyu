@@ -64,11 +64,13 @@ dsh --profile qqfish   （她的人格 + 模型）
 - `group.mode`：
   - `at`：只回 @ 她的；
   - `prefix`：@ 或消息以 `group.prefix`（默认「肥鱼」）开头；
-  - `name`：@ 或话里提到 `group.namePattern`（默认 `肥鱼|大肥鱼`）——不用 @ 也能搭话；
+  - `name`：@ / 有人**回复她的消息** / 话里提到 `group.namePattern`（默认 `肥鱼|大肥鱼`）——不用 @ 也能搭话；
   - `all`：每条都回（最吵）；
+  - 注：任何模式下，被 @ 或被「回复」都会触发；
 - `group.allowlist`：只在这些群工作，空 = 所有群；
 - `group.cooldownSec` / `maxPerHour`：其他人在这群里的冷却和每小时上限；
 - `group.ownerCooldownSec`（默认 5）/ `ownerMaxPerHour`（默认 0 = 不限）：号主自己的冷却，跟其他人分开算；
+- `reply.atSender`：群里回复时要不要 @ 对方（默认 `false`，直接说）；
 - `reply.maxChars`：一条太长就拆。
 
 ## 记忆

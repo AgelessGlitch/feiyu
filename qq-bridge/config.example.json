@@ -21,13 +21,15 @@
     "ownerCooldownSec": 5,
     "ownerMaxPerHour": 0
   },
-  "owner": ["你的QQ号"],
+  "owner": [
+    "你的QQ号"
+  ],
   "adoptFirstOwner": true,
   "friendAutoAccept": true,
   "reply": {
     "maxChars": 900,
     "quote": false,
-    "atSender": true
+    "atSender": false
   },
   "memory": {
     "enabled": true,
