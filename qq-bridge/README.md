@@ -87,7 +87,8 @@ dsh --profile qqfish   （她的人格 + 模型）
   ```powershell
   pip install --target tools\pylib edge-tts
   ```
-  合成失败（网络连不上 `speech.platform.bing.com`）会退回文字，不会丢消息；
+  连不上 `speech.platform.bing.com` 时会自动重试 4 次，再不行用百度发音兜底（普通女声）；
+  两条路都失败才退回文字，不会丢消息。合成结果按「声音 + 文本」做 sha1 缓存，同一句不会重复请求；
 - `voice.enabled: false` 可以关掉语音；`stickers.autoSave: false` 不再自动存别人发的图。
 
 ## 记忆

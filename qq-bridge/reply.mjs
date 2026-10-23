@@ -10,6 +10,7 @@
  * 语音合成失败会退回文字，不会把整条回复弄丢。
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join, extname, basename, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
@@ -128,7 +129,8 @@ export async function synthVoice(text, { voice = 'zh-CN-XiaoyiNeural', maxChars 
   if (!say) return null;
 
   mkdirSync(TMP_DIR, { recursive: true });
-  const key = Buffer.from(`${voice}|${say}`).toString('base64').replace(/[^a-z0-9]/gi, '').slice(0, 24);
+  // 用 sha1 做缓存键：base64 前 24 位会被「voice|」前缀占满，不同文本会撞成同一个文件
+  const key = createHash('sha1').update(`${voice}|${say}`).digest('hex').slice(0, 16);
   const out = join(TMP_DIR, `voice-${key}.mp3`);
   if (existsSync(out) && readFileSync(out).length > 1024) return out;
 
@@ -137,7 +139,7 @@ export async function synthVoice(text, { voice = 'zh-CN-XiaoyiNeural', maxChars 
   env.PYTHONPATH = [PYLIB, env.PYTHONPATH].filter(Boolean).join(';');
 
   // speech.platform.bing.com 偶尔连不上（国内网络），多试几次
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  for (let attempt = 1; attempt <= 4; attempt++) {
     try {
       await execFileAsync(py, ['-m', 'edge_tts', '--voice', voice, '--text', say, '--write-media', out], {
         env,
@@ -152,8 +154,27 @@ export async function synthVoice(text, { voice = 'zh-CN-XiaoyiNeural', maxChars 
     try {
       if (existsSync(out)) unlinkSync(out);
     } catch {}
-    if (attempt < 3) await new Promise((r) => setTimeout(r, 800));
+    if (attempt < 4) await new Promise((r) => setTimeout(r, 600 * attempt));
   }
+
+  // 还不行就用百度翻译的发音兜底（普通女声，不是小艺，但总比没有强）
+  try {
+    const url =
+      'https://fanyi.baidu.com/gettts?lan=zh&spd=5&source=web&text=' + encodeURIComponent(say);
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0', Referer: 'https://fanyi.baidu.com/' },
+      signal: AbortSignal.timeout(20000),
+    });
+    if (res.ok) {
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.length > 1024) {
+        writeFileSync(out, buf);
+        console.error('[voice] 小艺连不上，用了百度兜底');
+        return out;
+      }
+    }
+  } catch {}
+
   console.error('[voice] 合成失败（网络连不上）');
   return null;
 }
