@@ -531,8 +531,13 @@ async function deliver(raw, send, { atSender = false, atQQ } = {}) {
         enabled: cfg.voice?.enabled !== false,
       });
       if (mp3) {
-        await safe([{ type: 'record', data: { file: pathToFileURL(mp3).href } }]);
-        log('[reply] 语音', part.text.slice(0, 20));
+        try {
+          await send([{ type: 'record', data: { file: pathToFileURL(mp3).href } }]);
+          log('[reply] 语音', part.text.slice(0, 20));
+        } catch (e) {
+          log('[send] 语音发不出去，退回文字：', e.message);
+          await safe([{ type: 'text', data: { text: part.text } }]);
+        }
       } else {
         await safe([{ type: 'text', data: { text: part.text } }]);
       }
