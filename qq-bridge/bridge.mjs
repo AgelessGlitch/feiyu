@@ -28,7 +28,7 @@ const DEFAULTS = {
   onebot: { url: 'ws://127.0.0.1:3001', token: '' },
   agent: {
     profile: 'qqfish',
-    cwd: process.cwd(), // 默认用启动时的工作区，可在 config.json 里覆盖
+    cwd: 'D:\\dsh工作区\\ds-v3',
     model: '["deepseek-account","deepseek-flash"]',
     promptTimeoutMs: 240000,
   },
@@ -496,16 +496,18 @@ class ChatRuntime {
     }
   }
 
-  cooldownOk(key) {
+  cooldownOk(key, opts = {}) {
     if (!key.startsWith('g:')) return true;
+    const cooldownSec = opts.cooldownSec ?? this.cfg.group.cooldownSec;
+    const maxPerHour = opts.maxPerHour ?? this.cfg.group.maxPerHour;
     const now = Date.now();
     const r = this.recent.get(key) || { lastAt: 0, windowStart: now, count: 0 };
     if (now - r.windowStart > 3600_000) {
       r.windowStart = now;
       r.count = 0;
     }
-    if (now - r.lastAt < this.cfg.group.cooldownSec * 1000) return false;
-    if (r.count >= this.cfg.group.maxPerHour) return false;
+    if (now - r.lastAt < cooldownSec * 1000) return false;
+    if (maxPerHour > 0 && r.count >= maxPerHour) return false;
     r.lastAt = now;
     r.count += 1;
     this.recent.set(key, r);
@@ -586,13 +588,28 @@ async function handleEvent(event, onebot, rt, cfg) {
   if (isGroup) {
     const g = cfg.group;
     if (g.allowlist.length && !g.allowlist.includes(String(event.group_id))) return;
-    let should =
+    // at：只回 @；prefix：@ 或「肥鱼」开头；name：@ 或话里提到名字；all：每条都回
+    let byName = false;
+    if (g.mode === 'name') {
+      try {
+        byName = new RegExp(g.namePattern || '肥鱼|大肥鱼', 'i').test(text);
+      } catch {
+        byName = text.includes('肥鱼');
+      }
+    }
+    const should =
+      mentioned ||
       g.mode === 'all' ||
-      (g.mode === 'at' && mentioned) ||
-      (g.mode === 'prefix' && (mentioned || text.startsWith(g.prefix)));
+      (g.mode === 'prefix' && text.startsWith(g.prefix)) ||
+      byName;
     if (!should) return;
-    if (!rt.cooldownOk(`g:${event.group_id}`)) {
-      log('[skip] 群冷却中', event.group_id);
+    // 号主在群里：5 秒冷却、不限每小时条数；其他人还是 20 秒 / 30 条
+    const isOwner = cfg.owner.includes(String(userId));
+    const coolKey = isOwner ? `g:${event.group_id}:owner` : `g:${event.group_id}`;
+    const coolSec = isOwner ? (cfg.group.ownerCooldownSec ?? 5) : cfg.group.cooldownSec;
+    const capHour = isOwner ? (cfg.group.ownerMaxPerHour ?? 0) : cfg.group.maxPerHour;
+    if (!rt.cooldownOk(coolKey, { cooldownSec: coolSec, maxPerHour: capHour })) {
+      log(`[skip] 群冷却中（${isOwner ? '号主' : '其他人'} ${coolSec}s / ${capHour || '∞'}每小时）`, event.group_id);
       return;
     }
     const chat = `群 ${event.group_id}`;

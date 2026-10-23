@@ -12,11 +12,14 @@
   "privatePolicy": "owner",
   "privateAllowlist": [],
   "group": {
-    "mode": "at",
+    "mode": "name",
+    "namePattern": "肥鱼|大肥鱼",
     "prefix": "肥鱼",
     "allowlist": [],
     "cooldownSec": 20,
-    "maxPerHour": 30
+    "maxPerHour": 30,
+    "ownerCooldownSec": 5,
+    "ownerMaxPerHour": 0
   },
   "owner": ["你的QQ号"],
   "adoptFirstOwner": true,
