@@ -1,0 +1,29 @@
+{
+  "watch": {
+    "perDayMin": 3,
+    "perDayMax": 5,
+    "maxDurationSec": 1500,
+    "secondsPerVideo": 90,
+    "realWatch": true,
+    "subtitles": true,
+    "maxSubtitleChars": 1500
+  },
+  "interests": ["猫", "做饭", "老歌", "悬疑解说", "水族", "天文", "治愈"],
+  "like": { "chance": 0.6, "dailyMax": 3 },
+  "favorite": { "chance": 0.15, "dailyMax": 1 },
+  "coin": { "enabled": false, "dailyMax": 1 },
+  "llm": {
+    "baseUrl": "https://api.deepseek.com",
+    "model": "deepseek-chat",
+    "apiKey": "",
+    "maxTokens": 1200
+  },
+  "dynamic": { "autoPost": false, "dailyMax": 1 },
+  "windows": [
+    [13, 15],
+    [17, 19],
+    [21, 24]
+  ],
+  "runChance": 0.85,
+  "panel": { "port": 8899 }
+}

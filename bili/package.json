@@ -1,0 +1,10 @@
+﻿{
+  "name": "feiyu-bili",
+  "private": true,
+  "type": "module",
+  "description": "大肥鱼的 B站：看视频、记 bili-memory、写日记、发动态",
+  "dependencies": {
+    "bilibili-mcp-server": "1.2.0",
+    "qrcode": "^1.5.4"
+  }
+}

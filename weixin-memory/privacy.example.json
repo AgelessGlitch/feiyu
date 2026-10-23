@@ -1,0 +1,7 @@
+{
+  "skipOwner": false,
+  "mask": true,
+  "skipKeywords": ["密码", "验证码", "银行卡", "身份证号", "住址"],
+  "ownerName": "号主",
+  "selfName": "我"
+}

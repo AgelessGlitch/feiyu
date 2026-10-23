@@ -1,0 +1,41 @@
+{
+  "onebot": {
+    "url": "ws://127.0.0.1:3001",
+    "token": "改成你自己 NapCat 里配的 token"
+  },
+  "agent": {
+    "profile": "qqfish",
+    "cwd": "D:\\your-workspace",
+    "model": "[\"deepseek-account\",\"deepseek-flash\"]",
+    "promptTimeoutMs": 240000
+  },
+  "privatePolicy": "owner",
+  "privateAllowlist": [],
+  "group": {
+    "mode": "at",
+    "prefix": "肥鱼",
+    "allowlist": [],
+    "cooldownSec": 20,
+    "maxPerHour": 30
+  },
+  "owner": ["你的QQ号"],
+  "adoptFirstOwner": true,
+  "friendAutoAccept": true,
+  "reply": {
+    "maxChars": 900,
+    "quote": false,
+    "atSender": true
+  },
+  "memory": {
+    "enabled": true,
+    "dir": "qq-memory",
+    "days": 7,
+    "perDayChars": 2200,
+    "totalChars": 9000,
+    "maxMsgChars": 600
+  },
+  "limits": {
+    "perChatQueue": 4,
+    "globalConcurrent": 2
+  }
+}

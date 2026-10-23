@@ -1,0 +1,35 @@
+# 依赖
+node_modules/
+.npm-cache*/
+_wdl/
+_publish/
+backups/
+
+# 密钥 / 登录态
+qq-bridge/config.json
+qq-bridge/state.json
+qq-bridge/logs/
+qq-bridge/napcat/
+qq-bridge/_dl/
+bili/login/cookie.json
+bili/login/*.png
+bili/data/
+
+# 记忆与隐私（只提交 README 和占位文件）
+qq-memory/*.md
+!qq-memory/README.md
+weixin-memory/*.md
+!weixin-memory/README.md
+bili-memory/*.md
+!bili-memory/README.md
+feiyu/mood.json
+feiyu/diary/*.md
+!feiyu/diary/.gitkeep
+weixin-memory/.sync.json
+weixin-memory/privacy.json
+bili/config.json
+*.log
+
+# 系统
+.DS_Store
+Thumbs.db
