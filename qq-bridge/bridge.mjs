@@ -15,8 +15,9 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { QQMemory } from './memory.mjs';
+import { parseReply, plainText, saveIncomingImage, synthVoice } from './reply.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const LOG_DIR = path.join(HERE, 'logs');
@@ -49,7 +50,18 @@ const DEFAULTS = {
   reply: {
     maxChars: 900, // 单条 QQ 消息上限（超过就拆）
     quote: false, // 群里是否引用回复
-    atSender: true, // 群里回复时 @ 对方
+    atSender: false, // 群里回复时是否 @ 对方
+  },
+  // 表情包：她可以在回复里写 [[sticker:happy_开心]]；别人发的图默认存进 stickers/inbox
+  stickers: {
+    autoSave: true,
+    maxPerMessage: 3,
+  },
+  // 语音：她写 [[voice:要说的话]]，用 edge-tts 合成
+  voice: {
+    enabled: true,
+    voice: 'zh-CN-XiaoyiNeural',
+    maxChars: 60,
   },
   // 聊天记忆：按天存成 qq-memory/YYYY-MM-DD.md（相对 agent.cwd），
   // 每条消息都把最近 days 天带进 prompt；对方提到具体哪天，再单独读那天。
@@ -75,6 +87,8 @@ function loadConfig() {
     agent: { ...DEFAULTS.agent, ...(user.agent || {}) },
     group: { ...DEFAULTS.group, ...(user.group || {}) },
     reply: { ...DEFAULTS.reply, ...(user.reply || {}) },
+    stickers: { ...DEFAULTS.stickers, ...(user.stickers || {}) },
+    voice: { ...DEFAULTS.voice, ...(user.voice || {}) },
     memory: { ...DEFAULTS.memory, ...(user.memory || {}) },
     limits: { ...DEFAULTS.limits, ...(user.limits || {}) },
   };
@@ -428,6 +442,7 @@ function segmentsOf(event) {
 
 function toText(event, selfId) {
   const parts = [];
+  const images = [];
   let mentioned = false;
   let replyId = '';
   for (const seg of segmentsOf(event)) {
@@ -437,15 +452,17 @@ function toText(event, selfId) {
     else if (type === 'at') {
       if (String(data.qq) === String(selfId)) mentioned = true;
       if (data.qq !== 'all') parts.push(`@${data.name || data.qq} `);
-    } else if (type === 'image') parts.push('[图片]');
-    else if (type === 'face') parts.push('');
+    } else if (type === 'image') {
+      parts.push('[图片]');
+      if (data.url) images.push(String(data.url));
+    } else if (type === 'face') parts.push('');
     else if (type === 'file') parts.push(`[文件 ${data.name || ''}]`);
     else if (type === 'reply') replyId = String(data.id || '');
     else if (type === 'forward') parts.push('[合并转发]');
     else if (type === 'record') parts.push('[语音]');
     else if (type === 'video') parts.push('[视频]');
   }
-  return { text: parts.join('').trim(), mentioned, replyId };
+  return { text: parts.join('').trim(), mentioned, replyId, images };
 }
 
 function senderName(event) {
@@ -466,6 +483,61 @@ function splitMessage(text, max) {
   }
   if (rest) out.push(rest);
   return out;
+}
+
+/** 把别人发来的图存进 stickers/inbox，返回文件名列表 */
+async function saveImages(urls) {
+  const saved = [];
+  if (!cfg.stickers?.autoSave) return saved;
+  const max = cfg.stickers?.maxPerMessage || 3;
+  for (const u of (urls || []).slice(0, max)) {
+    try {
+      const name = await saveIncomingImage(u);
+      if (name) saved.push(name);
+    } catch (e) {
+      log('[sticker] 存图片失败：', e.message);
+    }
+  }
+  return saved;
+}
+
+/**
+ * 把她的回复发出去：文字 / 表情包 / 语音。
+ * 标记见 reply.mjs：[[sticker:名字]]、[[voice:要说的话]]
+ */
+async function deliver(raw, send, { atSender = false, atQQ } = {}) {
+  const safe = async (segs) => {
+    try {
+      await send(segs);
+    } catch (e) {
+      log('[send] 发送失败：', e.message);
+    }
+  };
+  for (const part of parseReply(raw)) {
+    if (part.type === 'text') {
+      for (const chunk of splitMessage(part.text, cfg.reply.maxChars)) {
+        const segs = [];
+        if (atSender) segs.push({ type: 'at', data: { qq: atQQ } });
+        segs.push({ type: 'text', data: { text: (atSender ? ' ' : '') + chunk } });
+        await safe(segs);
+      }
+    } else if (part.type === 'sticker') {
+      await safe([{ type: 'image', data: { file: pathToFileURL(part.path).href } }]);
+      log('[reply] 表情包', path.basename(part.path));
+    } else if (part.type === 'voice') {
+      const mp3 = await synthVoice(part.text, {
+        voice: cfg.voice?.voice,
+        maxChars: cfg.voice?.maxChars,
+        enabled: cfg.voice?.enabled !== false,
+      });
+      if (mp3) {
+        await safe([{ type: 'record', data: { file: pathToFileURL(mp3).href } }]);
+        log('[reply] 语音', part.text.slice(0, 20));
+      } else {
+        await safe([{ type: 'text', data: { text: part.text } }]);
+      }
+    }
+  }
 }
 
 // ---------------------------------------------------------------- sessions / queues
@@ -578,7 +650,7 @@ async function handleEvent(event, onebot, rt, cfg) {
   if (event.user_id && String(event.user_id) === String(onebot.selfId)) return; // 自己的消息
 
   const selfId = onebot.selfId;
-  const { text, mentioned, replyId } = toText(event, selfId);
+  const { text, mentioned, replyId, images } = toText(event, selfId);
   if (!text) return;
 
   const isGroup = event.message_type === 'group';
@@ -625,20 +697,22 @@ async function handleEvent(event, onebot, rt, cfg) {
       return;
     }
     const chat = `群 ${event.group_id}`;
-    const line = `【QQ群 ${event.group_name || event.group_id}】${name}(${userId}) 说：${replyToMe ? '（这条是回复你上面那句话的）' : ''}${text}`;
+    const savedImgs = await saveImages(images);
+    const imgNote = savedImgs.length ? `（图已存到 stickers/inbox：${savedImgs.join('、')}）` : '';
+    const line = `【QQ群 ${event.group_name || event.group_id}】${name}(${userId}) 说：${replyToMe ? '（这条是回复你上面那句话的）' : ''}${text}${imgNote}`;
     // 先按「之前的记录」拼好提示，再把这条记进去，免得同一条消息出现两次
     const prompt = buildPrompt({ chat, scope: 'chat', line, text });
-    mem?.record({ chat, speaker: name, text });
+    mem?.record({ chat, speaker: name, text: text + imgNote });
     const res = await rt.ask(`g:${event.group_id}`, prompt);
     if (!res || !res.text) return;
-    mem?.record({ chat, speaker: '我', text: res.text });
-    const chunks = splitMessage(res.text, cfg.reply.maxChars);
-    for (const chunk of chunks) {
-      const message = [];
-      if (cfg.reply.atSender) message.push({ type: 'at', data: { qq: userId } });
-      message.push({ type: 'text', data: { text: (cfg.reply.atSender ? ' ' : '') + chunk } });
-      await onebot.call('send_group_msg', { group_id: event.group_id, message });
-    }
+    mem?.record({ chat, speaker: '我', text: plainText(res.text) });
+    await deliver(
+      res.text,
+      async (message) => {
+        await onebot.call('send_group_msg', { group_id: event.group_id, message });
+      },
+      { atSender: cfg.reply.atSender, atQQ: userId },
+    );
     log(`[reply] group ${event.group_id} -> ${name}: ${res.text.slice(0, 60)}…`);
     return;
   }
@@ -659,15 +733,17 @@ async function handleEvent(event, onebot, rt, cfg) {
   const chat = `私聊 ${userId}`;
   // 号主私聊能翻到所有会话的记录；别人的私聊只看自己这个会话
   const scope = isOwner ? 'all' : 'chat';
-  const line = `【QQ私聊】${name}(${userId}) 说：${text}`;
+  const savedImgs = await saveImages(images);
+  const imgNote = savedImgs.length ? `（图已存到 stickers/inbox：${savedImgs.join('、')}）` : '';
+  const line = `【QQ私聊】${name}(${userId}) 说：${text}${imgNote}`;
   const prompt = buildPrompt({ chat, scope, line, text }); // 先拼提示，再记这条
-  mem?.record({ chat, speaker: name, text });
+  mem?.record({ chat, speaker: name, text: text + imgNote });
   const res = await rt.ask(`p:${userId}`, prompt);
   if (!res || !res.text) return;
-  mem?.record({ chat, speaker: '我', text: res.text });
-  for (const chunk of splitMessage(res.text, cfg.reply.maxChars)) {
-    await onebot.call('send_private_msg', { user_id: event.user_id, message: chunk });
-  }
+  mem?.record({ chat, speaker: '我', text: plainText(res.text) });
+  await deliver(res.text, async (message) => {
+    await onebot.call('send_private_msg', { user_id: event.user_id, message });
+  });
   log(`[reply] private ${userId} -> ${res.text.slice(0, 60)}…`);
 }
 

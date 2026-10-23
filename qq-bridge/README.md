@@ -73,6 +73,23 @@ dsh --profile qqfish   （她的人格 + 模型）
 - `reply.atSender`：群里回复时要不要 @ 对方（默认 `false`，直接说）；
 - `reply.maxChars`：一条太长就拆。
 
+## 表情包和语音
+
+她回复里可以用两个标记，桥接会换成真正的 QQ 消息段：
+
+```
+[[sticker:happy_开心]]        发 stickers/ 里的表情包（后缀可省）
+[[voice:晚安呀，做个好梦]]      合成语音发出去
+```
+
+- 表情库在 `stickers/`（12 张，`INDEX.md` 是清单）；别人发来的图默认存进 `stickers/inbox/`，她也能拿来用；
+- 语音用 [edge-tts](https://github.com/rany2/edge-tts)，默认 `zh-CN-XiaoyiNeural`（软萌女声）。先装一次：
+  ```powershell
+  pip install --target tools\pylib edge-tts
+  ```
+  合成失败（网络连不上 `speech.platform.bing.com`）会退回文字，不会丢消息；
+- `voice.enabled: false` 可以关掉语音；`stickers.autoSave: false` 不再自动存别人发的图。
+
 ## 记忆
 
 `memory.mjs` 把每条消息记成 `qq-memory/YYYY-MM-DD.md` 的一行，每次调模型前把**最近 7 天**拼进提示；

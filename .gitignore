@@ -4,6 +4,9 @@ node_modules/
 _wdl/
 _publish/
 backups/
+tools/pylib/
+tools/voice-tmp/
+stickers/inbox/
 
 # 密钥 / 登录态
 qq-bridge/config.json

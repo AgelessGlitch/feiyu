@@ -41,7 +41,7 @@
 | 模块 | 能力 |
 |---|---|
 | `feiyu-agent/` | 人格唯一来源 `persona.md`，`build.mjs` 同时生成 DSH 预设和 `qqfish` profile |
-| `qq-bridge/` | 真 QQ 号收发；按天记忆；最近 7 天注入；提到日期会回查 |
+| `qq-bridge/` | 真 QQ 号收发；表情包 + 语音（edge-tts 软萌女声）；按天记忆；最近 7 天注入；提到日期会回查 |
 | `bili/` | 每天挑 3~5 个视频、读字幕、总结、写记忆/日记、起草动态、投币/点赞（可关） |
 | `bili/panel.mjs` | 本地看板：今天刷没刷、看了什么、赞/收/币、7 天趋势、待审动态、聊天条数 |
 | `weixin-memory/` | 微信聊天按天落盘（从 DSH 会话日志增量同步），带隐私打码 |
@@ -54,6 +54,7 @@
 .
 ├── feiyu-agent/      人格、build.mjs、DSH 预设
 ├── qq-bridge/        QQ 桥接 + 记忆
+├── stickers/         她的表情包（12 张 + 收下来的图在 inbox/）
 ├── bili/             B 站：日常 / CLI / 面板 / 登录 / 动态
 ├── weixin-memory/    微信记忆同步
 ├── qq-memory/        QQ 聊天记忆（按天，默认不进库）
@@ -101,7 +102,13 @@ node bili\cli.mjs status
 
 1. 下载 NapCat，解压到 `qq-bridge\napcat\`，开 OneBot 11 WS `127.0.0.1:3001`，记下 token；
 2. 复制 `qq-bridge\config.example.json` 为 `config.json`，填 `onebot.token` / `owner` / `agent.cwd`；
-3. 启动 NapCat（管理员）用小号登录 → 双击 `qq-bridge\start-bridge.bat`。
+3. 想要语音回复，装一次 TTS（离线装到仓库里，不污染系统）：
+   ```powershell
+   pip install --target tools\pylib edge-tts
+   ```
+4. 启动 NapCat（管理员）用小号登录 → 双击 `qq-bridge\start-bridge.bat`。
+
+她能发文字、表情包（`[[sticker:happy_开心]]`）和语音（`[[voice:晚安呀]]`），别人发的图会自动收进 `stickers/inbox/`。
 
 ### 4. 微信（可选）
 

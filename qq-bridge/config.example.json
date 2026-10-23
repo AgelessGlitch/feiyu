@@ -42,5 +42,14 @@
   "limits": {
     "perChatQueue": 4,
     "globalConcurrent": 2
+  },
+  "stickers": {
+    "autoSave": true,
+    "maxPerMessage": 3
+  },
+  "voice": {
+    "enabled": true,
+    "voice": "zh-CN-XiaoyiNeural",
+    "maxChars": 60
   }
 }
