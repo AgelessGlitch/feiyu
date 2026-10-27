@@ -123,14 +123,17 @@ export async function saveIncomingImage(url, { maxBytes = 2 * 1024 * 1024 } = {}
 }
 
 /** 语音：edge-tts（Python），失败返回 null */
-export async function synthVoice(text, { voice = 'zh-CN-XiaoyiNeural', maxChars = 60, enabled = true } = {}) {
+export async function synthVoice(
+  text,
+  { voice = 'zh-CN-XiaoyiNeural', rate = '+0%', pitch = '+0Hz', maxChars = 60, enabled = true } = {},
+) {
   if (!enabled) return null;
   const say = String(text || '').replace(/\s+/g, ' ').trim().slice(0, maxChars);
   if (!say) return null;
 
   mkdirSync(TMP_DIR, { recursive: true });
   // 用 sha1 做缓存键：base64 前 24 位会被「voice|」前缀占满，不同文本会撞成同一个文件
-  const key = createHash('sha1').update(`${voice}|${say}`).digest('hex').slice(0, 16);
+  const key = createHash('sha1').update(`${voice}|${rate}|${pitch}|${say}`).digest('hex').slice(0, 16);
   const out = join(TMP_DIR, `voice-${key}.mp3`);
   if (existsSync(out) && readFileSync(out).length > 1024) return out;
 
@@ -141,10 +144,13 @@ export async function synthVoice(text, { voice = 'zh-CN-XiaoyiNeural', maxChars 
   // speech.platform.bing.com 偶尔连不上（国内网络），多试几次
   for (let attempt = 1; attempt <= 4; attempt++) {
     try {
-      await execFileAsync(py, ['-m', 'edge_tts', '--voice', voice, '--text', say, '--write-media', out], {
-        env,
-        timeout: 60000,
-        windowsHide: true,
+      await execFileAsync(
+        py,
+        ['-m', 'edge_tts', '--voice', voice, '--rate', rate, '--pitch', pitch, '--text', say, '--write-media', out],
+        {
+          env,
+          timeout: 60000,
+          windowsHide: true,
         maxBuffer: 4 * 1024 * 1024,
       });
     } catch {

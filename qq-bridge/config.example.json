@@ -50,6 +50,8 @@
   "voice": {
     "enabled": true,
     "voice": "zh-CN-XiaoyiNeural",
+    "rate": "+4%",
+    "pitch": "+25Hz",
     "maxChars": 60
   }
 }

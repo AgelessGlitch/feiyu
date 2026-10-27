@@ -61,6 +61,8 @@ const DEFAULTS = {
   voice: {
     enabled: true,
     voice: 'zh-CN-XiaoyiNeural',
+    rate: '+4%',
+    pitch: '+25Hz',
     maxChars: 60,
   },
   // 聊天记忆：按天存成 qq-memory/YYYY-MM-DD.md（相对 agent.cwd），
@@ -527,6 +529,8 @@ async function deliver(raw, send, { atSender = false, atQQ } = {}) {
     } else if (part.type === 'voice') {
       const mp3 = await synthVoice(part.text, {
         voice: cfg.voice?.voice,
+        rate: cfg.voice?.rate,
+        pitch: cfg.voice?.pitch,
         maxChars: cfg.voice?.maxChars,
         enabled: cfg.voice?.enabled !== false,
       });
@@ -564,6 +568,14 @@ class ChatRuntime {
     } catch {
       return {};
     }
+  }
+
+  /** 丢掉某个会话的映射，下次开新会话（人设/上下文更新后用） */
+  reset(key) {
+    if (!this.sessions[key]) return false;
+    delete this.sessions[key];
+    this.#saveState();
+    return true;
   }
 
   #saveState() {
@@ -666,6 +678,16 @@ async function handleEvent(event, onebot, rt, cfg) {
   if (isGroup) {
     const g = cfg.group;
     if (g.allowlist.length && !g.allowlist.includes(String(event.group_id))) return;
+    const isOwner = cfg.owner.includes(String(userId));
+    // /new：人工换一个新会话（人设更新后不用手动删 state.json）
+    if (isOwner && /^\/new$/i.test(text.trim())) {
+      const had = rt.reset(`g:${event.group_id}`);
+      await onebot.call('send_group_msg', {
+        group_id: event.group_id,
+        message: [{ type: 'text', data: { text: had ? '好，这个群换个新会话（记忆还在）。' : '本来就是新会话，没得换。' } }],
+      });
+      return;
+    }
     // 有人「回复」她的消息，也算在跟她说话（不用非得 @）
     let replyToMe = false;
     if (replyId) {
@@ -685,15 +707,24 @@ async function handleEvent(event, onebot, rt, cfg) {
         byName = text.includes('肥鱼');
       }
     }
+    // 号主专属叫法（默认「乖女儿」）：只有号主说才触发，别人说不算
+    let byOwnerAlias = false;
+    if (isOwner && g.ownerNamePattern) {
+      try {
+        byOwnerAlias = new RegExp(g.ownerNamePattern, 'i').test(text);
+      } catch {
+        byOwnerAlias = text.includes(g.ownerNamePattern);
+      }
+    }
     const should =
       mentioned ||
       replyToMe ||
       g.mode === 'all' ||
       (g.mode === 'prefix' && text.startsWith(g.prefix)) ||
-      byName;
+      byName ||
+      byOwnerAlias;
     if (!should) return;
     // 号主在群里：5 秒冷却、不限每小时条数；其他人还是 20 秒 / 30 条
-    const isOwner = cfg.owner.includes(String(userId));
     const coolKey = isOwner ? `g:${event.group_id}:owner` : `g:${event.group_id}`;
     const coolSec = isOwner ? (cfg.group.ownerCooldownSec ?? 5) : cfg.group.cooldownSec;
     const capHour = isOwner ? (cfg.group.ownerMaxPerHour ?? 0) : cfg.group.maxPerHour;
@@ -704,7 +735,8 @@ async function handleEvent(event, onebot, rt, cfg) {
     const chat = `群 ${event.group_id}`;
     const savedImgs = await saveImages(images);
     const imgNote = savedImgs.length ? `（图已存到 stickers/inbox：${savedImgs.join('、')}）` : '';
-    const line = `【QQ群 ${event.group_name || event.group_id}】${name}(${userId}) 说：${replyToMe ? '（这条是回复你上面那句话的）' : ''}${text}${imgNote}`;
+    const who = isOwner ? `${name}（这是你爹，QQ ${userId}）` : `${name}(${userId})`;
+    const line = `【QQ群 ${event.group_name || event.group_id}】${who} 说：${replyToMe ? '（这条是回复你上面那句话的）' : ''}${text}${imgNote}`;
     // 先按「之前的记录」拼好提示，再把这条记进去，免得同一条消息出现两次
     const prompt = buildPrompt({ chat, scope: 'chat', line, text });
     mem?.record({ chat, speaker: name, text: text + imgNote });
@@ -736,6 +768,15 @@ async function handleEvent(event, onebot, rt, cfg) {
   }
 
   const chat = `私聊 ${userId}`;
+  // /new：换个新会话（人设更新后不用手动删 state.json）
+  if (/^\/new$/i.test(text.trim())) {
+    const had = rt.reset(`p:${userId}`);
+    await onebot.call('send_private_msg', {
+      user_id: event.user_id,
+      message: [{ type: 'text', data: { text: had ? '好，换个新会话（记忆还在）。' : '本来就是新会话，没得换。' } }],
+    });
+    return;
+  }
   // 号主私聊能翻到所有会话的记录；别人的私聊只看自己这个会话
   const scope = isOwner ? 'all' : 'chat';
   const savedImgs = await saveImages(images);

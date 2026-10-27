@@ -87,13 +87,44 @@ dsh --profile qqfish   （她的人格 + 模型）
 ```
 
 - 表情库在 `stickers/`（12 张，`INDEX.md` 是清单）；别人发来的图默认存进 `stickers/inbox/`，她也能拿来用；
-- 语音用 [edge-tts](https://github.com/rany2/edge-tts)，默认 `zh-CN-XiaoyiNeural`（软萌女声）。先装一次：
+- 语音用 [edge-tts](https://github.com/rany2/edge-tts)，先装一次：
   ```powershell
   pip install --target tools\pylib edge-tts
   ```
   连不上 `speech.platform.bing.com` 时会自动重试 4 次，再不行用百度发音兜底（普通女声）；
-  两条路都失败才退回文字，不会丢消息。合成结果按「声音 + 文本」做 sha1 缓存，同一句不会重复请求；
+  两条路都失败才退回文字，不会丢消息。合成结果按「声音 + 文本 + 语调」做 sha1 缓存；
 - `voice.enabled: false` 可以关掉语音；`stickers.autoSave: false` 不再自动存别人发的图。
+
+### 音色和语调
+
+`edge-tts` 能用的中文音色（`python -m edge_tts --list-voices`）：
+
+| 音色 | 感觉 |
+|---|---|
+| `zh-CN-XiaoyiNeural` | 年轻、活泼（默认，偏「小艺」） |
+| `zh-CN-XiaoxiaoNeural` | 温暖、自然，最像真人播报 |
+| `zh-CN-YunxiaNeural` | 男声、卡通可爱（意外地适合卖萌） |
+| `zh-TW-HsiaoYuNeural` | 台湾腔，软 |
+| `zh-CN-liaoning-XiaobeiNeural` | 东北话 |
+| `zh-CN-shaanxi-XiaoniNeural` | 陕西话 |
+
+语调可以调，`config.json` → `voice`：
+
+```json
+{
+  "voice": "zh-CN-XiaoyiNeural",
+  "rate": "+4%",     // 语速，正数更快
+  "pitch": "+25Hz"   // 音高，正数更尖更幼
+}
+```
+
+试音不用改配置，直接：
+
+```powershell
+node tools\voice.mjs "爹，今天的白饭特别香" --voice zh-CN-XiaoxiaoNeural --rate +5% --pitch +18Hz --play
+```
+
+仓库里 `tools/voice-samples/` 有几段现成对比（同一句话、不同音色/音高）。
 
 ## 记忆
 
