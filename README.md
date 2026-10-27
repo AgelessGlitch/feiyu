@@ -61,6 +61,8 @@
 ├── bili-memory/      B 站记忆（按天，默认不进库）
 ├── feiyu/            心情、日记（默认不进库）
 ├── tools/            记忆工具箱、备份脚本
+├── start-everything.bat  一键全开（NapCat + QQ + 小管家 + 面板 + 微信）
+├── stop-everything.bat   一键关闭
 ├── start-all.bat     一键：B 站小管家 + 面板 + 微信同步
 ├── start-bili.bat    只开 B 站小管家
 ├── start-panel.bat   只开面板
@@ -117,13 +119,29 @@ node bili\cli.mjs status
 
 ### 5. 启动
 
+**一键全开**（推荐）：
+
 ```powershell
-start-all.bat        # B 站小管家 + 面板 + 微信记忆同步
+start-everything.bat
 ```
 
-面板：<http://127.0.0.1:8899>
+会按顺序起：NapCat（没在跑才起，会弹 UAC）→ QQ 桥接 → B 站小管家 → 面板 → 微信记忆同步，最后打开 <http://127.0.0.1:8899>。已经在跑的会自动跳过，不会重复开。
 
-> 想开机自启：`Win+R` → `shell:startup` → 把 `start-all.bat` 的快捷方式拖进去。
+想分开开也行：
+
+```powershell
+start-bili.bat       # 只开 B 站小管家
+start-panel.bat      # 只开面板
+start-all.bat        # B 站小管家 + 面板 + 微信同步（不含 QQ）
+```
+
+关掉对应窗口就停那个服务；全关用：
+
+```powershell
+stop-everything.bat
+```
+
+> 想开机自启：`Win+R` → `shell:startup` → 把 `start-everything.bat` 的快捷方式拖进去。
 
 ## 记忆是怎么存的
 
