@@ -11,6 +11,7 @@ stickers/inbox/
 # 密钥 / 登录态
 qq-bridge/config.json
 qq-bridge/state.json
+qq-bridge/quick-login.txt
 qq-bridge/logs/
 qq-bridge/napcat/
 qq-bridge/_dl/

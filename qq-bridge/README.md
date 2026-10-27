@@ -55,6 +55,10 @@ dsh --profile qqfish   （她的人格 + 模型）
 3. 看到登录成功后，双击 `start-bridge.bat`；
 4. 用大号给这个号发一句「在吗」。
 
+> **不用每次扫码**：QQ 会保留登录态，重开时走「快速登录」，手机上点一下确认就行。
+> NapCat 支持直接传小号 QQ 号：`start-napcat-admin.bat 123456`，省掉选账号那步。
+> 一键启动脚本会读 `qq-bridge/quick-login.txt`（自己填小号 QQ 号，别提交），没有这个文件就退回扫码。
+
 ## 她会怎么回
 
 `config.json`：

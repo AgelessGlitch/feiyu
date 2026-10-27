@@ -12,15 +12,23 @@ echo ============================================
 echo.
 
 rem ---------- 1. NapCat ----------
+set "NAPCAT_QQ="
+if exist "qq-bridge\quick-login.txt" set /p NAPCAT_QQ=<"qq-bridge\quick-login.txt"
+
 call :port_listening 3001
 if "%PORT_OK%"=="1" (
   echo [1/5] NapCat 已在运行（3001 在监听）
 ) else (
-  echo [1/5] 启动 NapCat（会弹 UAC，请点“是”；会先关掉现有 QQ）
-  if defined DRY (
-    echo        ^> qq-bridge\napcat\start-napcat-admin.bat
+  if defined NAPCAT_QQ (
+    echo [1/5] 启动 NapCat（快速登录 %NAPCAT_QQ%）
   ) else (
-    start "feiyu-napcat" cmd /c "qq-bridge\napcat\start-napcat-admin.bat"
+    echo [1/5] 启动 NapCat（扫码登录）
+  )
+  echo        会弹 UAC，请点“是”；会先关掉现有 QQ
+  if defined DRY (
+    echo        ^> qq-bridge\napcat\start-napcat-admin.bat %NAPCAT_QQ%
+  ) else (
+    start "feiyu-napcat" cmd /c "qq-bridge\napcat\start-napcat-admin.bat %NAPCAT_QQ%"
     echo        等 12 秒让它把 QQ 拉起来...
     timeout /t 12 >nul
   )
